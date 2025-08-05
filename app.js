@@ -17,15 +17,34 @@ app.get('/', (req, res) => {
 });
 
 app.get('/login', (req, res) => {
-    res.render('login');
+    const message = req.query.message;
+    res.render('login', { message });
 });
 
 app.get('/register', (req, res) => {
-    res.render('register'); // Optional route for registration page
+    res.render('register');
 });
 
-app.get('/profile', isLoggedIn, (req, res) => {
-    res.render('profile', { user: req.user });
+app.get('/profile', isLoggedIn, async (req, res) => {
+  let user = await userModel.findOne({email: req.user.email}).populate("posts");
+  
+    res.render('profile', { user });
+    // res.render("profile");
+});
+
+//post
+app.post('/post', isLoggedIn, async (req, res) => {
+  let user = await userModel.findOne({email: req.user.email});
+let {content} = req.body;
+
+  let post = await postModel.create({
+    user: user._id,
+    content
+  })
+  
+  user.posts.push(post._id);
+  await user.save();
+  res.redirect("/profile");
 });
 
 // Register Route
@@ -69,7 +88,7 @@ app.post('/login', async (req, res) => {
 
         const token = jwt.sign({ email: user.email, userid: user._id }, "shhhh");
         res.cookie("token", token);
-        res.send("Login successful");
+        res.status(200).redirect("/profile");
     } catch (err) {
         console.log(err);
         res.status(500).send("Internal Server Error");
@@ -86,14 +105,14 @@ app.get('/logout', (req, res) => {
 function isLoggedIn(req, res, next) {
     const token = req.cookies.token;
 
-    if (!token) return res.redirect('/login');
+    if (!token) return res.redirect('/login?message=You must be logged in');
 
     try {
         const data = jwt.verify(token, "shhhh");
         req.user = data;
         next();
     } catch (err) {
-        res.redirect('/login');
+        res.redirect('/login?message=You must be logged in');
     }
 }
 
